@@ -1,0 +1,22 @@
+# Postgres propio de ms-orders (desarrollo local).
+# Uso: docker compose up -d  (levanta solo la base; el broker vive en ms-admin)
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: p360-orders-db
+    environment:
+      POSTGRES_USER: pedidos360
+      POSTGRES_PASSWORD: pedidos360
+      POSTGRES_DB: pedidos360_ordenes
+    ports:
+      - "5434:5432"
+    volumes:
+      - orders_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pedidos360 -d pedidos360_ordenes"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  orders_data:
