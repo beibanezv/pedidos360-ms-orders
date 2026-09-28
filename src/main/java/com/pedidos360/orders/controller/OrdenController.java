@@ -48,6 +48,7 @@ public class OrdenController {
         "usuarioId", o.getUsuarioId(),
         "totalClp", o.getTotalClp(),
         "estado", o.getEstado(),
+        "itemsJson", o.getItemsJson(),
         "createdAt", o.getCreatedAt().toString());
   }
 }
