@@ -36,6 +36,7 @@ class OrdenControllerTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.ordenId").value(orden.getId().toString()))
         .andExpect(jsonPath("$.estado").value("REGISTRADA"))
+        .andExpect(jsonPath("$.itemsJson").value("[]"))
         .andExpect(jsonPath("$.totalClp").value(39980));
   }
 
