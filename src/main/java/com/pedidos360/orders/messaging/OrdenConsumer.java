@@ -55,18 +55,20 @@ public class OrdenConsumer extends BaseConsumer {
         return; // Duplicada por reintento: ACK sin efectos secundarios.
       }
       ordenRepository.save(new Orden(
-          event.ordenId(), event.usuarioId(), event.totalClp(), itemsJson(event)));
+          event.ordenId(), event.usuarioId(), event.emailComprador(), event.totalClp(),
+          itemsJson(event)));
       rabbitTemplate.convertAndSend(
           RabbitMQConfig.EVENTOS_EXCHANGE,
           RabbitMQConfig.ORDEN_REGISTRADA_ROUTING_KEY,
-          new OrdenRegistradaEvent(event.ordenId(), event.usuarioId(), items(event),
-              event.codigoCupon()));
+          new OrdenRegistradaEvent(event.ordenId(), event.usuarioId(), event.emailComprador(),
+              items(event), event.codigoCupon()));
     });
   }
 
   private static void validar(OrdenCreadaEvent event) {
     if (event == null || event.ordenId() == null
         || event.usuarioId() == null || event.usuarioId().isBlank()
+        || event.emailComprador() == null || event.emailComprador().isBlank()
         || event.items() == null || event.items().isEmpty()
         || event.totalClp() < 0
         || event.items().stream().anyMatch(i ->

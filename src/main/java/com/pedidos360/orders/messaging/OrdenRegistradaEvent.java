@@ -5,13 +5,14 @@ import java.util.UUID;
 
 /**
  * Evento que publica ms-orders al registrar una orden. Lo consumen
- * ms-productos (productoId/cantidad), ms-notificaciones, ms-auditoria
- * y ms-cupones (codigoCupon, nullable).
+ * ms-productos (productoId/cantidad), ms-notificaciones (emailComprador),
+ * ms-auditoria y ms-cupones (codigoCupon, nullable).
  * Solo viajan los campos que los consumidores necesitan.
  */
 public record OrdenRegistradaEvent(
     UUID ordenId,
     String usuarioId,
+    String emailComprador,
     List<Item> items,
     String codigoCupon) {
 

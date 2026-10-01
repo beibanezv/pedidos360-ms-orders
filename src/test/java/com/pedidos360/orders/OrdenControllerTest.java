@@ -29,7 +29,7 @@ class OrdenControllerTest {
 
   @Test
   void porId_existe_retorna200() throws Exception {
-    Orden orden = new Orden(UUID.randomUUID(), "usuario-1", 39980L, "[]");
+    Orden orden = new Orden(UUID.randomUUID(), "usuario-1", "comprador@mail.com", 39980L, "[]");
     when(ordenRepository.findById(orden.getId())).thenReturn(Optional.of(orden));
 
     mvc.perform(get("/ordenes/" + orden.getId()))
@@ -50,7 +50,7 @@ class OrdenControllerTest {
 
   @Test
   void porUsuario_retornaLista() throws Exception {
-    Orden orden = new Orden(UUID.randomUUID(), "usuario-1", 19990L, "[]");
+    Orden orden = new Orden(UUID.randomUUID(), "usuario-1", "comprador@mail.com", 19990L, "[]");
     when(ordenRepository.findByUsuarioIdOrderByCreatedAtDesc("usuario-1"))
         .thenReturn(List.of(orden));
 

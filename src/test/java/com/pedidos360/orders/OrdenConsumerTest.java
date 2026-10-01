@@ -43,7 +43,7 @@ class OrdenConsumerTest {
 
   private static OrdenCreadaEvent eventoValido() {
     return new OrdenCreadaEvent(
-        UUID.randomUUID(), "usuario-1",
+        UUID.randomUUID(), "usuario-1", "comprador@mail.com",
         List.of(new OrdenCreadaEvent.Item(UUID.randomUUID(), 2, 19990L)),
         39980L, null);
   }
@@ -65,11 +65,18 @@ class OrdenConsumerTest {
 
     consumer.registrarOrden(event, channel, TAG, mensajeFresco());
 
-    verify(ordenRepository).save(any(Orden.class));
+    org.mockito.ArgumentCaptor<Orden> ordenCaptor = org.mockito.ArgumentCaptor.forClass(Orden.class);
+    verify(ordenRepository).save(ordenCaptor.capture());
+    org.junit.jupiter.api.Assertions.assertEquals("comprador@mail.com",
+        ordenCaptor.getValue().getEmailComprador());
+    org.mockito.ArgumentCaptor<OrdenRegistradaEvent> eventoCaptor =
+        org.mockito.ArgumentCaptor.forClass(OrdenRegistradaEvent.class);
     verify(rabbitTemplate).convertAndSend(
         eq(RabbitMQConfig.EVENTOS_EXCHANGE),
         eq(RabbitMQConfig.ORDEN_REGISTRADA_ROUTING_KEY),
-        any(OrdenRegistradaEvent.class));
+        eventoCaptor.capture());
+    org.junit.jupiter.api.Assertions.assertEquals("comprador@mail.com",
+        eventoCaptor.getValue().emailComprador());
     verify(channel).basicAck(TAG, false);
   }
 
@@ -88,7 +95,19 @@ class OrdenConsumerTest {
   @Test
   void invalida_dlqDirecto() throws Exception {
     OrdenCreadaEvent event = new OrdenCreadaEvent(
-        UUID.randomUUID(), "usuario-1", List.of(), 0L, null);
+        UUID.randomUUID(), "usuario-1", "comprador@mail.com", List.of(), 0L, null);
+
+    consumer.registrarOrden(event, channel, TAG, mensajeFresco());
+
+    verify(ordenRepository, never()).save(any(Orden.class));
+    verify(channel).basicNack(TAG, false, false);
+  }
+
+  @Test
+  void sinEmail_dlqDirecto() throws Exception {
+    OrdenCreadaEvent event = new OrdenCreadaEvent(
+        UUID.randomUUID(), "usuario-1", "  ",
+        List.of(new OrdenCreadaEvent.Item(UUID.randomUUID(), 1, 1000L)), 1000L, null);
 
     consumer.registrarOrden(event, channel, TAG, mensajeFresco());
 

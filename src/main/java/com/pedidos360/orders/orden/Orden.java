@@ -25,6 +25,11 @@ public class Orden {
   @Column(nullable = false)
   private String usuarioId;
 
+  // Email del comprador (obligatorio desde el checkout; nullable en BD para
+  // no romper filas históricas creadas antes de este campo).
+  @Column
+  private String emailComprador;
+
   @Column(nullable = false)
   private long totalClp;
 
@@ -39,15 +44,17 @@ public class Orden {
 
   protected Orden() {}
 
-  public Orden(UUID id, String usuarioId, long totalClp, String itemsJson) {
+  public Orden(UUID id, String usuarioId, String emailComprador, long totalClp, String itemsJson) {
     this.id = id;
     this.usuarioId = usuarioId;
+    this.emailComprador = emailComprador;
     this.totalClp = totalClp;
     this.itemsJson = itemsJson;
   }
 
   public UUID getId() { return id; }
   public String getUsuarioId() { return usuarioId; }
+  public String getEmailComprador() { return emailComprador; }
   public long getTotalClp() { return totalClp; }
   public String getEstado() { return estado; }
   public String getItemsJson() { return itemsJson; }
