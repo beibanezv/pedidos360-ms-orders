@@ -12,9 +12,6 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  * la URL https del frontend en AWS) y manda header Authorization, asi que sin
  * esto el preflight OPTIONS queda sin Access-Control-Allow-Origin y la vista
  * "Mis ordenes" falla aunque el backend responda 200.
- *
- * Sin Spring Security a proposito (lo protege el authorizer JWT del API Gateway
- * en AWS); por eso el CORS va aqui y no en un SecurityFilterChain.
  */
 @Configuration
 public class WebConfig implements WebMvcConfigurer {

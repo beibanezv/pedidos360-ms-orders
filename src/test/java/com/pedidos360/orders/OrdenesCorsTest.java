@@ -1,17 +1,19 @@
 package com.pedidos360.orders;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.pedidos360.orders.config.IdentityConfig;
 import com.pedidos360.orders.controller.OrdenController;
 import com.pedidos360.orders.orden.OrdenRepository;
-import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -20,6 +22,7 @@ import org.springframework.test.web.servlet.MockMvc;
  * asi que sin CORS el preflight falla y la vista "Mis ordenes" no carga.
  */
 @WebMvcTest(OrdenController.class)
+@Import(IdentityConfig.class)
 @TestPropertySource(properties = "cors.allowed-origins=http://localhost:4200")
 class OrdenesCorsTest {
 
@@ -43,7 +46,7 @@ class OrdenesCorsTest {
 
   @Test
   void get_conOriginDevuelveAllowOrigin() throws Exception {
-    mvc.perform(get("/ordenes").param("usuarioId", "usuario-1").header("Origin", "http://localhost:4200"))
+    mvc.perform(get("/ordenes").with(jwt()).header("Origin", "http://localhost:4200"))
         .andExpect(status().isOk())
         .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:4200"));
   }
