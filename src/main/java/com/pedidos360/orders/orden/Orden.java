@@ -10,7 +10,8 @@ import java.util.UUID;
 /**
  * Orden registrada formalmente. El id es el ordenId que generó ms-carrito
  * en el checkout: así la idempotencia es gratis (misma orden dos veces =
- * misma PK, el consumidor la detecta con existsById).
+ * misma PK). Los metadatos de reserva nuevos son nullable en BD para no
+ * romper las filas históricas (ddl-auto=update sobre tabla con datos).
  *
  * // SIMPLIFICADO: los ítems van como JSON en una columna TEXT. Upgrade =
  * // tabla orden_items con FK cuando se necesiten consultas por producto.
@@ -42,6 +43,13 @@ public class Orden {
   @Column(nullable = false, updatable = false)
   private Instant createdAt = Instant.now();
 
+  // false en históricas; el constructor de órdenes nuevas lo pone en true.
+  private boolean reservaSolicitada;
+  private Instant reservaExpiraEn;
+  private UUID intentoActualId;
+  private int reintentosPago;
+  private boolean requiereRevision;
+
   protected Orden() {}
 
   public Orden(UUID id, String usuarioId, String emailComprador, long totalClp, String itemsJson) {
@@ -50,6 +58,7 @@ public class Orden {
     this.emailComprador = emailComprador;
     this.totalClp = totalClp;
     this.itemsJson = itemsJson;
+    this.reservaSolicitada = true;
   }
 
   public UUID getId() { return id; }
@@ -59,4 +68,16 @@ public class Orden {
   public String getEstado() { return estado; }
   public String getItemsJson() { return itemsJson; }
   public Instant getCreatedAt() { return createdAt; }
+  public boolean getReservaSolicitada() { return reservaSolicitada; }
+  public Instant getReservaExpiraEn() { return reservaExpiraEn; }
+  public UUID getIntentoActualId() { return intentoActualId; }
+  public int getReintentosPago() { return reintentosPago; }
+  public boolean isRequiereRevision() { return requiereRevision; }
+
+  public void setEstado(String estado) { this.estado = estado; }
+  public void setReservaSolicitada(boolean reservaSolicitada) { this.reservaSolicitada = reservaSolicitada; }
+  public void setReservaExpiraEn(Instant reservaExpiraEn) { this.reservaExpiraEn = reservaExpiraEn; }
+  public void setIntentoActualId(UUID intentoActualId) { this.intentoActualId = intentoActualId; }
+  public void setReintentosPago(int reintentosPago) { this.reintentosPago = reintentosPago; }
+  public void setRequiereRevision(boolean requiereRevision) { this.requiereRevision = requiereRevision; }
 }

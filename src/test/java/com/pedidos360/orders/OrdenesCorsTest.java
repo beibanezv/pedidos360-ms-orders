@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.pedidos360.orders.config.IdentityConfig;
 import com.pedidos360.orders.controller.OrdenController;
 import com.pedidos360.orders.orden.OrdenRepository;
+import com.pedidos360.orders.orden.OrdenReservaService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -31,6 +32,9 @@ class OrdenesCorsTest {
 
   @MockBean
   OrdenRepository ordenRepository;
+
+  @MockBean
+  OrdenReservaService service;
 
   @Test
   void preflight_desdeFrontend_permitido() throws Exception {
