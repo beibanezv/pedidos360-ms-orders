@@ -26,6 +26,7 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 
 @ExtendWith(MockitoExtension.class)
 class OrdenConsumerTest {
+  static { System.setProperty("p360.retry.espera-ms", "0"); }
 
   @Mock
   OrdenRepository ordenRepository;
@@ -123,7 +124,7 @@ class OrdenConsumerTest {
 
     consumer.registrarOrden(event, channel, TAG, mensajeFresco());
 
-    verify(channel).basicNack(TAG, false, true);
+    verify(channel).basicNack(TAG, false, false);
   }
 
   @Test
