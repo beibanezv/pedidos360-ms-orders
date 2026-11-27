@@ -59,9 +59,9 @@ public class OrdenController {
   @PostMapping("/{ordenId}/pago/claim")
   public ResponseEntity<Map<String, Object>> claim(@PathVariable UUID ordenId,
       @AuthenticationPrincipal Jwt jwt, @Valid @RequestBody ClaimRequest body) {
-    boolean ok = service.reclamarPago(ordenId, IdentityConfig.usuario(jwt), body.intentoId());
-    if (!ok) return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", "intento no vigente"));
-    return ResponseEntity.ok(Map.of("estado", "PAGO_PENDIENTE"));
+    Long total = service.reclamarPago(ordenId, IdentityConfig.usuario(jwt), body.intentoId());
+    if (total == null) return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", "intento no vigente"));
+    return ResponseEntity.ok(Map.of("estado", "PAGO_PENDIENTE", "totalClp", total));
   }
 
   @PostMapping("/{ordenId}/cancelar")

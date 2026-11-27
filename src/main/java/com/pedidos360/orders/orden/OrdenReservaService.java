@@ -169,19 +169,24 @@ public class OrdenReservaService {
     procesadoRepository.save(new Procesado(procesadoId, orden.getId(), event.resultado(), Instant.now()));
   }
 
-  /** Claim idempotente por dueño + intento; 0 filas obliga a re-leer antes de 409. */
+  /** Claim idempotente por dueño + intento; devuelve el total de la fila bloqueada o null si no ganó. */
   @Transactional
-  public boolean reclamarPago(UUID ordenId, String usuarioId, UUID intentoId) {
+  public Long reclamarPago(UUID ordenId, String usuarioId, UUID intentoId) {
     if (intentoId == null) throw new IllegalArgumentException("intentoId obligatorio");
-    if (ordenRepository.findByIdAndUsuarioIdAndEstadoAndIntentoActualId(
-        ordenId, usuarioId, "PAGO_PENDIENTE", intentoId).isPresent()) {
-      return true; // Misma petición ya atendida: sin crear pago ni extender vencimiento.
+    var previo = ordenRepository.findByIdAndUsuarioIdAndEstadoAndIntentoActualId(
+        ordenId, usuarioId, "PAGO_PENDIENTE", intentoId);
+    if (previo.isPresent()) return previo.get().getTotalClp();
+    if (ordenRepository.reclamar(ordenId, usuarioId, intentoId, Instant.now()) == 1) {
+      // La fila ya está bloqueada por este UPDATE dentro de la misma transacción.
+      return ordenRepository.findById(ordenId)
+          .orElseThrow(() -> new IllegalStateException("Orden desapareció al reclamar"))
+          .getTotalClp();
     }
-    if (ordenRepository.reclamar(ordenId, usuarioId, intentoId, Instant.now()) == 1) return true;
     return ordenRepository.findById(ordenId)
         .filter(o -> usuarioId.equals(o.getUsuarioId()) && intentoId.equals(o.getIntentoActualId())
             && "PAGO_PENDIENTE".equals(o.getEstado()))
-        .isPresent();
+        .map(Orden::getTotalClp)
+        .orElse(null);
   }
 
   /** El cuerpo de cancelación nunca acepta intentoId ni desistencia afirmada. */

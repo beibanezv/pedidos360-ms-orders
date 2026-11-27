@@ -2,6 +2,8 @@ package com.pedidos360.orders;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -190,7 +192,7 @@ class OrdenReservaServiceTest {
     when(ordenRepository.findByIdAndUsuarioIdAndEstadoAndIntentoActualId(
         ordenId, USUARIO, "PAGO_PENDIENTE", intentoId)).thenReturn(Optional.of(orden("PAGO_PENDIENTE")));
 
-    assertTrue(service.reclamarPago(ordenId, USUARIO, intentoId));
+    assertNotNull(service.reclamarPago(ordenId, USUARIO, intentoId));
 
     verify(ordenRepository, never()).reclamar(any(), any(), any(), any());
     verify(ordenRepository, never()).save(any());
@@ -208,7 +210,7 @@ class OrdenReservaServiceTest {
     when(ordenRepository.reclamar(any(), any(), any(), any())).thenReturn(0);
     when(ordenRepository.findById(ordenId)).thenReturn(Optional.of(o));
 
-    assertFalse(service.reclamarPago(ordenId, USUARIO, intentoB));
+    assertNull(service.reclamarPago(ordenId, USUARIO, intentoB));
   }
 
   @Test
@@ -222,7 +224,7 @@ class OrdenReservaServiceTest {
     when(ordenRepository.reclamar(any(), any(), any(), any())).thenReturn(0);
     when(ordenRepository.findById(ordenId)).thenReturn(Optional.of(o));
 
-    assertTrue(service.reclamarPago(ordenId, USUARIO, intentoId));
+    assertNotNull(service.reclamarPago(ordenId, USUARIO, intentoId));
   }
 
   @Test
@@ -233,7 +235,7 @@ class OrdenReservaServiceTest {
     when(ordenRepository.reclamar(any(), any(), any(), any())).thenReturn(0);
     when(ordenRepository.findById(ordenId)).thenReturn(Optional.of(orden("EXPIRADA")));
 
-    assertFalse(service.reclamarPago(ordenId, USUARIO, UUID.randomUUID()));
+    assertNull(service.reclamarPago(ordenId, USUARIO, UUID.randomUUID()));
     verify(ordenRepository, never()).save(any());
   }
 
@@ -430,7 +432,7 @@ class OrdenReservaServiceTest {
     when(ordenRepository.reclamar(any(), any(), any(), any())).thenReturn(0);
 
     assertEquals(ResultadoCancelacion.CANCELADA, service.cancelar(ordenId, USUARIO));
-    assertFalse(service.reclamarPago(ordenId, USUARIO, UUID.randomUUID()));
+    assertNull(service.reclamarPago(ordenId, USUARIO, UUID.randomUUID()));
     assertFalse(o.getReservaSolicitada());
     verify(outboxRepository, never()).save(any());
   }

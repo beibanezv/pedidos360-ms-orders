@@ -146,7 +146,7 @@ class OrdenReservaPostgresTest {
         "SIN_STOCK", Instant.now()));
 
     assertEquals("SIN_STOCK", recargar(o.getId()).getEstado());
-    assertFalse(service.reclamarPago(o.getId(), USUARIO, UUID.randomUUID()));
+    assertNull(service.reclamarPago(o.getId(), USUARIO, UUID.randomUUID()));
   }
 
   @Test
@@ -158,8 +158,8 @@ class OrdenReservaPostgresTest {
     ordenes.save(o);
     Instant expira = o.getReservaExpiraEn();
 
-    assertTrue(service.reclamarPago(o.getId(), USUARIO, intento));
-    assertTrue(service.reclamarPago(o.getId(), USUARIO, intento));
+    assertNotNull(service.reclamarPago(o.getId(), USUARIO, intento));
+    assertNotNull(service.reclamarPago(o.getId(), USUARIO, intento));
 
     assertEquals(expira, recargar(o.getId()).getReservaExpiraEn());
     assertEquals("PAGO_PENDIENTE", recargar(o.getId()).getEstado());
@@ -173,7 +173,7 @@ class OrdenReservaPostgresTest {
     o.setReservaExpiraEn(Instant.now().plus(30, ChronoUnit.MINUTES));
     ordenes.save(o);
 
-    assertFalse(service.reclamarPago(o.getId(), USUARIO, UUID.randomUUID()));
+    assertNull(service.reclamarPago(o.getId(), USUARIO, UUID.randomUUID()));
     assertEquals(intentoActual, recargar(o.getId()).getIntentoActualId());
   }
 
@@ -184,9 +184,9 @@ class OrdenReservaPostgresTest {
     ordenes.save(o);
     UUID intento = UUID.randomUUID();
 
-    assertTrue(service.reclamarPago(o.getId(), USUARIO, intento));
-    assertTrue(service.reclamarPago(o.getId(), USUARIO, intento)); // re-lectura tras 0 filas
-    assertFalse(service.reclamarPago(o.getId(), USUARIO, UUID.randomUUID()));
+    assertNotNull(service.reclamarPago(o.getId(), USUARIO, intento));
+    assertNotNull(service.reclamarPago(o.getId(), USUARIO, intento)); // re-lectura tras 0 filas
+    assertNull(service.reclamarPago(o.getId(), USUARIO, UUID.randomUUID()));
   }
 
   @Test
@@ -198,7 +198,7 @@ class OrdenReservaPostgresTest {
     service.expirarReservas();
 
     assertEquals("EXPIRADA", recargar(o.getId()).getEstado());
-    assertFalse(service.reclamarPago(o.getId(), USUARIO, UUID.randomUUID()));
+    assertNull(service.reclamarPago(o.getId(), USUARIO, UUID.randomUUID()));
     assertEquals(1, outbox.count());
     OrdenOutbox salida = outbox.findAll().get(0);
     assertNotNull(salida.getPayload());
@@ -241,7 +241,7 @@ class OrdenReservaPostgresTest {
     o.setReservaExpiraEn(Instant.now().plus(30, ChronoUnit.MINUTES));
     ordenes.save(o);
     UUID intento = UUID.randomUUID();
-    assertTrue(service.reclamarPago(o.getId(), USUARIO, intento));
+    assertNotNull(service.reclamarPago(o.getId(), USUARIO, intento));
 
     service.expirarReservas(); // PAGO_PENDIENTE no es tocado
     service.pagoResuelto(pago(o.getId(), intento, "APROBADO"));
@@ -346,7 +346,7 @@ class OrdenReservaPostgresTest {
     ordenes.save(o);
 
     assertEquals(ResultadoCancelacion.CANCELADA, service.cancelar(o.getId(), USUARIO));
-    assertFalse(service.reclamarPago(o.getId(), USUARIO, UUID.randomUUID()));
+    assertNull(service.reclamarPago(o.getId(), USUARIO, UUID.randomUUID()));
 
     assertEquals("CANCELADA", recargar(o.getId()).getEstado());
     assertEquals(0, outbox.count());

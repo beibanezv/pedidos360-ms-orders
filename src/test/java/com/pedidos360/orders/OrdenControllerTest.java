@@ -115,10 +115,25 @@ class OrdenControllerTest {
   }
 
   @Test
+  void claimDevuelveTotalClpAutoritativoDelPedidoBloqueado() throws Exception {
+    UUID ordenId = UUID.randomUUID();
+    UUID intentoId = UUID.randomUUID();
+    when(service.reclamarPago(ordenId, "usuario-1", intentoId)).thenReturn(19990L);
+
+    mvc.perform(post("/ordenes/" + ordenId + "/pago/claim")
+            .with(jwt().jwt(j -> j.subject("usuario-1")))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"intentoId\":\"" + intentoId + "\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.estado").value("PAGO_PENDIENTE"))
+        .andExpect(jsonPath("$.totalClp").value(19990));
+  }
+
+  @Test
   void claimMismoIntentoDevuelve200() throws Exception {
     UUID ordenId = UUID.randomUUID();
     UUID intentoId = UUID.randomUUID();
-    when(service.reclamarPago(ordenId, "usuario-1", intentoId)).thenReturn(true);
+    when(service.reclamarPago(ordenId, "usuario-1", intentoId)).thenReturn(19990L);
 
     mvc.perform(post("/ordenes/" + ordenId + "/pago/claim")
             .with(jwt().jwt(j -> j.subject("usuario-1")))
@@ -132,7 +147,7 @@ class OrdenControllerTest {
   void claimOtroIntentoDevuelve409() throws Exception {
     UUID ordenId = UUID.randomUUID();
     UUID intentoId = UUID.randomUUID();
-    when(service.reclamarPago(eq(ordenId), eq("usuario-1"), any())).thenReturn(false);
+    when(service.reclamarPago(eq(ordenId), eq("usuario-1"), any())).thenReturn(null);
 
     mvc.perform(post("/ordenes/" + ordenId + "/pago/claim")
             .with(jwt().jwt(j -> j.subject("usuario-1")))
