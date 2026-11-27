@@ -22,6 +22,7 @@ import org.springframework.amqp.core.MessageProperties;
 
 @ExtendWith(MockitoExtension.class)
 class OrdenConsumerTest {
+  static { System.setProperty("p360.retry.espera-ms", "0"); }
 
   @Mock
   OrdenReservaService service;
@@ -110,7 +111,7 @@ class OrdenConsumerTest {
 
     consumer.registrarOrden(event, channel, TAG, mensajeFresco());
 
-    verify(channel).basicNack(TAG, false, true);
+    verify(channel).basicNack(TAG, false, false);
   }
 
   @Test
