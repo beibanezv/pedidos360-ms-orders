@@ -36,6 +36,15 @@ public class RabbitMQConfig {
   public static final String EVENTOS_EXCHANGE = "p360.eventos";
   public static final String ORDEN_REGISTRADA_ROUTING_KEY = "orden.registrada";
 
+  // C3/C4 congelado (G0 2026-11-27): colas nuevas sobre los exchanges existentes.
+  public static final String STOCK_RESERVADO_ROUTING_KEY = "stock.reservado";
+  public static final String STOCK_RECHAZADO_ROUTING_KEY = "stock.rechazado";
+  public static final String PAGO_RESUELTO_ROUTING_KEY = "pago.resuelto";
+  public static final String RESERVAS_ORDENES_QUEUE = "p360.reservas.ordenes.queue";
+  public static final String RESERVAS_ORDENES_DLQ = "p360.reservas.ordenes.dlq";
+  public static final String PAGOS_ORDENES_QUEUE = "p360.pagos.ordenes.queue";
+  public static final String PAGOS_ORDENES_DLQ = "p360.pagos.ordenes.dlq";
+
   // Límite de reintentos de errores transitorios (ver OrdenConsumer).
   public static final int MAX_REINTENTOS = 3;
 
@@ -84,6 +93,63 @@ public class RabbitMQConfig {
   @Bean
   TopicExchange eventosExchange() {
     return new TopicExchange(EVENTOS_EXCHANGE, true, false);
+  }
+
+  // Matías declara solo la topología C3; los consumidores los escribe Benjamín.
+  @Bean
+  Queue reservasOrdenesQueue() {
+    return QueueBuilder.durable(RESERVAS_ORDENES_QUEUE)
+        .withArgument("x-dead-letter-exchange", DLX_EXCHANGE)
+        .withArgument("x-dead-letter-routing-key", RESERVAS_ORDENES_QUEUE)
+        .build();
+  }
+
+  @Bean
+  Binding reservasOrdenesReservadoBinding(Queue reservasOrdenesQueue, TopicExchange eventosExchange) {
+    return new Binding(RESERVAS_ORDENES_QUEUE, Binding.DestinationType.QUEUE,
+        EVENTOS_EXCHANGE, STOCK_RESERVADO_ROUTING_KEY, null);
+  }
+
+  @Bean
+  Binding reservasOrdenesRechazadoBinding(Queue reservasOrdenesQueue, TopicExchange eventosExchange) {
+    return new Binding(RESERVAS_ORDENES_QUEUE, Binding.DestinationType.QUEUE,
+        EVENTOS_EXCHANGE, STOCK_RECHAZADO_ROUTING_KEY, null);
+  }
+
+  @Bean
+  Queue reservasOrdenesDlq() {
+    return QueueBuilder.durable(RESERVAS_ORDENES_DLQ).build();
+  }
+
+  @Bean
+  Binding reservasOrdenesDlqBinding(Queue reservasOrdenesDlq, DirectExchange deadLetterExchange) {
+    return new Binding(RESERVAS_ORDENES_DLQ, Binding.DestinationType.QUEUE,
+        DLX_EXCHANGE, RESERVAS_ORDENES_QUEUE, null);
+  }
+
+  @Bean
+  Queue pagosOrdenesQueue() {
+    return QueueBuilder.durable(PAGOS_ORDENES_QUEUE)
+        .withArgument("x-dead-letter-exchange", DLX_EXCHANGE)
+        .withArgument("x-dead-letter-routing-key", PAGOS_ORDENES_QUEUE)
+        .build();
+  }
+
+  @Bean
+  Binding pagosOrdenesBinding(Queue pagosOrdenesQueue, TopicExchange eventosExchange) {
+    return new Binding(PAGOS_ORDENES_QUEUE, Binding.DestinationType.QUEUE,
+        EVENTOS_EXCHANGE, PAGO_RESUELTO_ROUTING_KEY, null);
+  }
+
+  @Bean
+  Queue pagosOrdenesDlq() {
+    return QueueBuilder.durable(PAGOS_ORDENES_DLQ).build();
+  }
+
+  @Bean
+  Binding pagosOrdenesDlqBinding(Queue pagosOrdenesDlq, DirectExchange deadLetterExchange) {
+    return new Binding(PAGOS_ORDENES_DLQ, Binding.DestinationType.QUEUE,
+        DLX_EXCHANGE, PAGOS_ORDENES_QUEUE, null);
   }
 
   // Los eventos viajan como JSON (records de messaging.*).
