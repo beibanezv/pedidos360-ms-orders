@@ -1,10 +1,22 @@
 package com.pedidos360.orders.config;
 
+import com.fasterxml.jackson.databind.JavaType;
+import com.pedidos360.orders.messaging.OrdenCreadaEvent;
+import com.pedidos360.orders.messaging.OrdenRegistradaEvent;
+import com.pedidos360.orders.messaging.PagoResueltoEvent;
+import com.pedidos360.orders.messaging.StockLiberadoEvent;
+import com.pedidos360.orders.messaging.StockRechazadoEvent;
+import com.pedidos360.orders.messaging.StockReservadoEvent;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import org.springframework.amqp.core.Binding;
+import org.springframework.amqp.core.MessageProperties;
 import org.springframework.amqp.core.DirectExchange;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.QueueBuilder;
 import org.springframework.amqp.core.TopicExchange;
+import org.springframework.amqp.support.converter.DefaultJackson2JavaTypeMapper;
+import org.springframework.amqp.support.converter.Jackson2JavaTypeMapper;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.context.annotation.Bean;
@@ -152,9 +164,66 @@ public class RabbitMQConfig {
         DLX_EXCHANGE, PAGOS_ORDENES_QUEUE, null);
   }
 
-  // Los eventos viajan como JSON (records de messaging.*).
+  private static final Map<Class<?>, String> SIMPLE_IDS = Map.of(
+      OrdenCreadaEvent.class, "OrdenCreadaEvent",
+      OrdenRegistradaEvent.class, "OrdenRegistradaEvent",
+      StockReservadoEvent.class, "StockReservadoEvent",
+      StockRechazadoEvent.class, "StockRechazadoEvent",
+      StockLiberadoEvent.class, "StockLiberadoEvent",
+      PagoResueltoEvent.class, "PagoResueltoEvent");
+
+  /**
+   * DTOs espejo: se publica siempre el nombre simple en __TypeId__ y se aceptan
+   * como alias los FQCN historicos de los otros servicios. Sin comodines.
+   *
+   * DefaultJackson2JavaTypeMapper invierte el mapa y el ultimo id escrito para
+   * una misma clase gana al publicar: los alias van primero, el nombre simple
+   * al final.
+   */
+  public static DefaultJackson2JavaTypeMapper jsonTypeMapper() {
+    Map<String, Class<?>> ids = new LinkedHashMap<>();
+
+    ids.put("com.pedidos360.carrito.messaging.OrdenCreadaEvent", OrdenCreadaEvent.class);
+
+    ids.put("com.pedidos360.productos.messaging.OrdenRegistradaEvent", OrdenRegistradaEvent.class);
+    ids.put("com.pedidos360.notificaciones.messaging.OrdenRegistradaEvent", OrdenRegistradaEvent.class);
+    ids.put("cl.pedidos360.cupones.messaging.OrdenRegistradaEvent", OrdenRegistradaEvent.class);
+
+    ids.put("com.pedidos360.productos.messaging.StockReservadoEvent", StockReservadoEvent.class);
+    ids.put("com.pedidos360.productos.messaging.StockRechazadoEvent", StockRechazadoEvent.class);
+    ids.put("com.pedidos360.productos.messaging.StockLiberadoEvent", StockLiberadoEvent.class);
+
+    ids.put("com.pedidos360.pagos.PagoResueltoEvent", PagoResueltoEvent.class);
+    ids.put("com.pedidos360.pagos.messaging.PagoResueltoEvent", PagoResueltoEvent.class);
+
+    ids.put("OrdenCreadaEvent", OrdenCreadaEvent.class);
+    ids.put("OrdenRegistradaEvent", OrdenRegistradaEvent.class);
+    ids.put("StockReservadoEvent", StockReservadoEvent.class);
+    ids.put("StockRechazadoEvent", StockRechazadoEvent.class);
+    ids.put("StockLiberadoEvent", StockLiberadoEvent.class);
+    ids.put("PagoResueltoEvent", PagoResueltoEvent.class);
+
+    // El mapper invierte el mapa en un HashMap: sin fijar el id, un alias FQCN
+    // podria ganar al publicar. Cada espejo lleva su nombre simple en __TypeId__.
+    DefaultJackson2JavaTypeMapper mapper = new DefaultJackson2JavaTypeMapper() {
+      @Override
+      public void fromJavaType(JavaType javaType, MessageProperties properties) {
+        super.fromJavaType(javaType, properties);
+        String simple = SIMPLE_IDS.get(javaType.getRawClass());
+        if (simple != null) {
+          properties.setHeader(DEFAULT_CLASSID_FIELD_NAME, simple);
+        }
+      }
+    };
+    mapper.setIdClassMapping(ids);
+    mapper.setTypePrecedence(Jackson2JavaTypeMapper.TypePrecedence.TYPE_ID);
+    return mapper;
+  }
+
   @Bean
   MessageConverter jsonMessageConverter() {
-    return new Jackson2JsonMessageConverter();
+    Jackson2JsonMessageConverter converter = new Jackson2JsonMessageConverter();
+    converter.setJavaTypeMapper(jsonTypeMapper());
+    return converter;
   }
 }
