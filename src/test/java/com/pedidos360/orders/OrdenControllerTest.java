@@ -154,6 +154,18 @@ class OrdenControllerTest {
   }
 
   @Test
+  void cancelarSinEfectoDevuelve409() throws Exception {
+    UUID ordenId = UUID.randomUUID();
+    when(service.cancelar(ordenId, "usuario-1")).thenReturn(ResultadoCancelacion.NO_CANCELADA);
+
+    mvc.perform(post("/ordenes/" + ordenId + "/cancelar")
+            .with(jwt().jwt(j -> j.subject("usuario-1")))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"motivo\":\"CANCELA\"}"))
+        .andExpect(status().isConflict());
+  }
+
+  @Test
   void cancelarSinMotivoNiDesistenciaDevuelve400() throws Exception {
     UUID ordenId = UUID.randomUUID();
 

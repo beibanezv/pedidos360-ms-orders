@@ -10,6 +10,8 @@ import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.amqp.AmqpException;
 import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.amqp.rabbit.connection.CorrelationData.Confirm;
@@ -21,9 +23,12 @@ import org.springframework.stereotype.Component;
 /**
  * Publica la salida persistida tras el commit y marca publicado_en SOLO con
  * confirmación Rabbit. Reenvía pendientes tras reinicio con el mismo eventoId.
+ * Requiere spring.rabbitmq.publisher-confirm-type=correlated (ver properties).
  */
 @Component
 public class OrdenOutboxRelay {
+
+  private static final Logger log = LoggerFactory.getLogger(OrdenOutboxRelay.class);
 
   private final RabbitTemplate rabbitTemplate;
   private final OrdenOutboxRepository outboxRepository;
@@ -47,14 +52,18 @@ public class OrdenOutboxRelay {
   }
 
   private void enviar(OrdenOutbox salida) {
+    Object evento;
     try {
-      Object evento = switch (salida.getRoutingKey()) {
-        case RabbitMQConfig.ORDEN_REGISTRADA_ROUTING_KEY ->
-            objectMapper.readValue(salida.getPayload(), OrdenRegistradaEvent.class);
-        case OrdenTopologia.STOCK_LIBERADO_ROUTING_KEY ->
-            objectMapper.readValue(salida.getPayload(), StockLiberadoEvent.class);
-        default -> throw new IllegalStateException("Routing key desconocida: " + salida.getRoutingKey());
-      };
+      if (RabbitMQConfig.ORDEN_REGISTRADA_ROUTING_KEY.equals(salida.getRoutingKey())) {
+        evento = objectMapper.readValue(salida.getPayload(), OrdenRegistradaEvent.class);
+      } else if (OrdenTopologia.STOCK_LIBERADO_ROUTING_KEY.equals(salida.getRoutingKey())) {
+        evento = objectMapper.readValue(salida.getPayload(), StockLiberadoEvent.class);
+      } else {
+        // Una fila mal escrita no debe tumbar el scheduler ni marcarse como enviada.
+        log.error("Routing key desconocida en outbox eventoId={} key={}",
+            salida.getEventoId(), salida.getRoutingKey());
+        return;
+      }
       // eventoId estable: el reenvío no crea un resultado nuevo.
       CorrelationData correlacion = new CorrelationData(salida.getEventoId().toString());
       rabbitTemplate.convertAndSend(OrdenTopologia.EVENTOS_EXCHANGE, salida.getRoutingKey(),

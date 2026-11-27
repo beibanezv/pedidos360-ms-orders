@@ -73,7 +73,7 @@ public class OrdenController {
     return switch (service.cancelar(ordenId, IdentityConfig.usuario(jwt))) {
       case CANCELADA -> ResponseEntity.ok(Map.of("estado", "CANCELADA"));
       case NO_ENCONTRADA -> ResponseEntity.notFound().build();
-      case PAGO_PENDIENTE, TERMINAL ->
+      case PAGO_PENDIENTE, TERMINAL, NO_CANCELADA ->
           ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", "orden no cancelable"));
     };
   }

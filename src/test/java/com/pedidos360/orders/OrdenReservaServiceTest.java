@@ -320,6 +320,52 @@ class OrdenReservaServiceTest {
   }
 
   @Test
+  void cancelarRegistradaSinFilasReleeYNoAfirmaCancelacion() {
+    Orden o = orden("REGISTRADA");
+    UUID ordenId = o.getId();
+    when(ordenRepository.findById(ordenId)).thenReturn(Optional.of(o));
+    when(ordenRepository.cancelarSinReserva(ordenId, USUARIO)).thenReturn(0);
+
+    assertEquals(ResultadoCancelacion.NO_CANCELADA, service.cancelar(ordenId, USUARIO));
+    verify(outboxRepository, never()).save(any());
+  }
+
+  @Test
+  void cancelarSinReservaYaCanceladaDevuelve200Idempotente() {
+    Orden previa = orden("REGISTRADA");
+    UUID ordenId = previa.getId();
+    when(ordenRepository.findById(ordenId)).thenReturn(Optional.of(previa),
+        Optional.of(orden("CANCELADA")));
+    when(ordenRepository.cancelarSinReserva(ordenId, USUARIO)).thenReturn(0);
+
+    assertEquals(ResultadoCancelacion.CANCELADA, service.cancelar(ordenId, USUARIO));
+  }
+
+  @Test
+  void cancelarSinReservaConPagoVigenteDevuelve409() {
+    Orden previa = orden("REGISTRADA");
+    UUID ordenId = previa.getId();
+    Orden enPago = orden("PAGO_PENDIENTE");
+    enPago.setIntentoActualId(UUID.randomUUID());
+    when(ordenRepository.findById(ordenId)).thenReturn(Optional.of(previa), Optional.of(enPago));
+    when(ordenRepository.cancelarSinReserva(ordenId, USUARIO)).thenReturn(0);
+
+    assertEquals(ResultadoCancelacion.PAGO_PENDIENTE, service.cancelar(ordenId, USUARIO));
+    verify(outboxRepository, never()).save(any());
+  }
+
+  @Test
+  void cancelarReservadaSinFilasReleeYNoAfirmaCancelacion() {
+    Orden o = orden("RESERVADA");
+    UUID ordenId = o.getId();
+    when(ordenRepository.findById(ordenId)).thenReturn(Optional.of(o));
+    when(ordenRepository.cancelarReservada(ordenId)).thenReturn(0);
+
+    assertEquals(ResultadoCancelacion.NO_CANCELADA, service.cancelar(ordenId, USUARIO));
+    verify(outboxRepository, never()).save(any());
+  }
+
+  @Test
   void cancelarRegistradaConStockTardioLiberaUnaSolaVez() {
     UUID ordenId = UUID.randomUUID();
     Orden o = orden("REGISTRADA");
@@ -380,6 +426,7 @@ class OrdenReservaServiceTest {
     Orden o = orden("REGISTRADA");
     o.setReservaSolicitada(false);
     when(ordenRepository.findById(ordenId)).thenReturn(Optional.of(o));
+    when(ordenRepository.cancelarSinReserva(ordenId, USUARIO)).thenReturn(1);
     when(ordenRepository.reclamar(any(), any(), any(), any())).thenReturn(0);
 
     assertEquals(ResultadoCancelacion.CANCELADA, service.cancelar(ordenId, USUARIO));

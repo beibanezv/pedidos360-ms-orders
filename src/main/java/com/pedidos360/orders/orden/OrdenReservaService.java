@@ -42,7 +42,9 @@ public class OrdenReservaService {
     this.objectMapper = objectMapper;
   }
 
-  public enum ResultadoCancelacion { CANCELADA, PAGO_PENDIENTE, NO_ENCONTRADA, TERMINAL }
+  public enum ResultadoCancelacion {
+    CANCELADA, PAGO_PENDIENTE, NO_ENCONTRADA, TERMINAL, NO_CANCELADA
+  }
 
   @Transactional
   public void registrar(OrdenCreadaEvent event, OrdenRegistradaEvent salida) {
@@ -197,16 +199,29 @@ public class OrdenReservaService {
     if ("RESERVADA".equals(orden.getEstado())) {
       if (ordenRepository.cancelarReservada(ordenId) == 1) {
         liberar(orden, "CANCELADA", Instant.now());
-      } else {
-        Orden actual = ordenRepository.findById(ordenId)
-            .orElseThrow(() -> new IllegalStateException("Orden desapareció al cancelar"));
-        if ("PAGO_PENDIENTE".equals(actual.getEstado())) return ResultadoCancelacion.PAGO_PENDIENTE;
+        return ResultadoCancelacion.CANCELADA;
       }
-      return ResultadoCancelacion.CANCELADA;
+      return estadoTrasCancelacionFallida(ordenId, usuarioId);
     }
     // REGISTRADA (incluida la histórica) y SIN_STOCK: sin liberación inventada.
-    ordenRepository.cancelarSinReserva(ordenId, usuarioId);
-    return ResultadoCancelacion.CANCELADA;
+    if (ordenRepository.cancelarSinReserva(ordenId, usuarioId) == 1) {
+      return ResultadoCancelacion.CANCELADA;
+    }
+    return estadoTrasCancelacionFallida(ordenId, usuarioId);
+  }
+
+  /** 0 filas no implica cancelación: se re-lee y se devuelve el estado REAL. */
+  private ResultadoCancelacion estadoTrasCancelacionFallida(UUID ordenId, String usuarioId) {
+    Orden actual = ordenRepository.findById(ordenId).orElse(null);
+    if (actual == null || !usuarioId.equals(actual.getUsuarioId())) {
+      return ResultadoCancelacion.NO_ENCONTRADA;
+    }
+    return switch (actual.getEstado()) {
+      case "CANCELADA" -> ResultadoCancelacion.CANCELADA; // idempotente
+      case "PAGO_PENDIENTE" -> ResultadoCancelacion.PAGO_PENDIENTE;
+      case "PAGO_APROBADO", "EXPIRADA" -> ResultadoCancelacion.TERMINAL;
+      default -> ResultadoCancelacion.NO_CANCELADA; // sigue REGISTRADA/SIN_STOCK/RESERVADA
+    };
   }
 
   @Transactional
