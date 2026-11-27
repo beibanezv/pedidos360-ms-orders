@@ -161,8 +161,8 @@ class OrdenReservaPostgresTest {
     assertNotNull(service.reclamarPago(o.getId(), USUARIO, intento));
     assertNotNull(service.reclamarPago(o.getId(), USUARIO, intento));
 
-    // Postgres guarda timestamptz con precisión de microsegundos.
-    assertEquals(expira.truncatedTo(ChronoUnit.MICROS), recargar(o.getId()).getReservaExpiraEn());
+    // Postgres guarda timestamptz con precisión de microsegundos (redondea, no trunca).
+    assertTrue(Math.abs(ChronoUnit.MICROS.between(expira, recargar(o.getId()).getReservaExpiraEn())) <= 1);
     assertEquals("PAGO_PENDIENTE", recargar(o.getId()).getEstado());
   }
 
