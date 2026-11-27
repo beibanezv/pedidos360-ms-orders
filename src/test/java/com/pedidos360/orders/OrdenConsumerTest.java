@@ -1,38 +1,33 @@
 package com.pedidos360.orders.messaging;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.pedidos360.orders.config.RabbitMQConfig;
-import com.pedidos360.orders.orden.Orden;
-import com.pedidos360.orders.orden.OrdenRepository;
+import com.pedidos360.orders.orden.OrdenReservaService;
 import com.rabbitmq.client.Channel;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.MessageProperties;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
 
 @ExtendWith(MockitoExtension.class)
 class OrdenConsumerTest {
+  static { System.setProperty("p360.retry.espera-ms", "0"); }
 
   @Mock
-  OrdenRepository ordenRepository;
+  OrdenReservaService service;
   @Mock
-  RabbitTemplate rabbitTemplate;
-  @Spy
-  ObjectMapper objectMapper = new ObjectMapper();
+  OrdenOutboxRelay relay;
   @Mock
   Channel channel;
 
@@ -61,34 +56,27 @@ class OrdenConsumerTest {
   @Test
   void exito_guardaPublicaYack() throws Exception {
     OrdenCreadaEvent event = eventoValido();
-    when(ordenRepository.existsById(event.ordenId())).thenReturn(false);
 
     consumer.registrarOrden(event, channel, TAG, mensajeFresco());
 
-    org.mockito.ArgumentCaptor<Orden> ordenCaptor = org.mockito.ArgumentCaptor.forClass(Orden.class);
-    verify(ordenRepository).save(ordenCaptor.capture());
-    org.junit.jupiter.api.Assertions.assertEquals("comprador@mail.com",
-        ordenCaptor.getValue().getEmailComprador());
-    org.mockito.ArgumentCaptor<OrdenRegistradaEvent> eventoCaptor =
-        org.mockito.ArgumentCaptor.forClass(OrdenRegistradaEvent.class);
-    verify(rabbitTemplate).convertAndSend(
-        eq(RabbitMQConfig.EVENTOS_EXCHANGE),
-        eq(RabbitMQConfig.ORDEN_REGISTRADA_ROUTING_KEY),
-        eventoCaptor.capture());
-    org.junit.jupiter.api.Assertions.assertEquals("comprador@mail.com",
-        eventoCaptor.getValue().emailComprador());
+    ArgumentCaptor<OrdenCreadaEvent> entrada = ArgumentCaptor.forClass(OrdenCreadaEvent.class);
+    ArgumentCaptor<OrdenRegistradaEvent> salida = ArgumentCaptor.forClass(OrdenRegistradaEvent.class);
+    verify(service).registrar(entrada.capture(), salida.capture());
+    assertEquals(event.ordenId(), entrada.getValue().ordenId());
+    assertEquals("comprador@mail.com", salida.getValue().emailComprador());
+    verify(relay).publicarPendientes();
     verify(channel).basicAck(TAG, false);
   }
 
   @Test
-  void duplicada_ackSinEfectos() throws Exception {
+  void duplicada_republicaSalidaPendiente() throws Exception {
     OrdenCreadaEvent event = eventoValido();
-    when(ordenRepository.existsById(event.ordenId())).thenReturn(true);
 
     consumer.registrarOrden(event, channel, TAG, mensajeFresco());
 
-    verify(ordenRepository, never()).save(any(Orden.class));
-    verify(rabbitTemplate, never()).convertAndSend(any(), any(), (Object) any());
+    // Sin atajo existsById: el duplicado también pasa por el servicio y el relay.
+    verify(service).registrar(any(), any());
+    verify(relay).publicarPendientes();
     verify(channel).basicAck(TAG, false);
   }
 
@@ -99,7 +87,8 @@ class OrdenConsumerTest {
 
     consumer.registrarOrden(event, channel, TAG, mensajeFresco());
 
-    verify(ordenRepository, never()).save(any(Orden.class));
+    verify(service, never()).registrar(any(), any());
+    verify(relay, never()).publicarPendientes();
     verify(channel).basicNack(TAG, false, false);
   }
 
@@ -111,26 +100,24 @@ class OrdenConsumerTest {
 
     consumer.registrarOrden(event, channel, TAG, mensajeFresco());
 
-    verify(ordenRepository, never()).save(any(Orden.class));
+    verify(service, never()).registrar(any(), any());
     verify(channel).basicNack(TAG, false, false);
   }
 
   @Test
   void transitorio_reintenta() throws Exception {
     OrdenCreadaEvent event = eventoValido();
-    when(ordenRepository.existsById(event.ordenId())).thenReturn(false);
-    when(ordenRepository.save(any(Orden.class))).thenThrow(new RuntimeException("BD caída"));
+    doThrow(new RuntimeException("BD caída")).when(service).registrar(any(), any());
 
     consumer.registrarOrden(event, channel, TAG, mensajeFresco());
 
-    verify(channel).basicNack(TAG, false, true);
+    verify(channel).basicNack(TAG, false, false);
   }
 
   @Test
   void transitorioAgotado_dlq() throws Exception {
     OrdenCreadaEvent event = eventoValido();
-    when(ordenRepository.existsById(event.ordenId())).thenReturn(false);
-    when(ordenRepository.save(any(Orden.class))).thenThrow(new RuntimeException("BD caída"));
+    doThrow(new RuntimeException("BD caída")).when(service).registrar(any(), any());
 
     consumer.registrarOrden(event, channel, TAG, mensajeConMuertes(3));
 
